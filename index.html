@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Label 80x100 mm</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap');
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      display: block;
+      width: 80mm;
+    }
+    .sticker {
+      width: 80mm;
+      height: 100mm;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      box-sizing: border-box;
+      margin-bottom: 0;
+      position: relative;
+    }
+    .label {
+      width: 80mm;
+      height: 100mm;
+      box-sizing: border-box;
+      padding: 2mm;
+      padding-bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0;
+      position: relative;
+    }
+    .row {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      margin-bottom: 2mm;
+    }
+    .bottom-container {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .qr {
+      width: 20mm;
+      height: 20mm;
+      margin-right: 2mm;
+      margin-left: 3mm;
+    }
+    .text-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 50mm;
+    }
+    .material {
+      font-size: 40px;
+      font-weight: bold;
+      text-align: left;
+      margin: 0;
+      line-height: 1.1;
+    }
+    .description {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: left;
+      line-height: 1.3;
+      width: calc(100% - 4mm);
+      margin: 2mm 0 0 3mm;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      word-wrap: break-word;
+    }
+    .serial-container {
+      display: flex;
+      flex-direction: column;
+      margin: 2mm 0 0 3mm;
+      width: calc(100% - 4mm);
+    }
+    .serial-label {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: left;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .serial-text {
+      font-size: 25px;
+      font-weight: bold;
+      text-align: left;
+      margin: 2mm 0 0 0;
+      line-height: 1.2;
+    }
+    .location {
+      font-size: 25px;
+      font-weight: bold;
+      text-align: left;
+      margin-top: 0;
+      margin-bottom: 0;
+      line-height: 1.3;
+      margin-left: 3mm;
+    }
+    .lot-line {
+      font-size: 25px;
+      font-weight: bold;
+      margin-top: 0;
+      margin-bottom: 0;
+      line-height: 1.3;
+      margin-left: 3mm;
+      margin-right: 2mm;
+    }
+    .center-serial-qr {
+      position: absolute;
+      top: 65%;
+      left: 50%;
+      transform: translate(-50%, -30%);
+      width: 20mm;
+      height: 20mm;
+      margin-top: 2mm;
+    }
+    .print-button {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    .print-button:hover {
+      background-color: #45a049;
+    }
+    /* Spinner Styles */
+    .spinner-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #4CAF50;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @media print {
+      .print-button, .spinner-container {
+        display: none;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        width: 80mm;
+        margin: 0;
+      }
+      .sticker {
+        page-break-inside: avoid;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button" onclick="window.print()">Print Preview</button>
+  <div class="spinner-container" id="spinner">
+    <div class="spinner"></div>
+  </div>
+  <div id="app">
+    <p style="text-align:center;">กำลังโหลดข้อมูล...</p>
+  </div>
+
+  <script>
+    const sheetID = "1q-yJfvUsdGDYBqY7V_V9AhHp1Z9augtxvLWblzTV9XM";
+    const sheetName = "Data_Serial";
+    const url = `https://opensheet.elk.sh/${sheetID}/${sheetName}`;
+
+    async function loadAndRender() {
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const cleanedData = data.map(row => ({
+          IDserial: row['IDserial'] || '',
+          IDBarcode: row['IDBarcode'] || '',
+          Material: row['Material'] || '',
+          Serial: row['Serial'] || '',
+          Description: row['Description'] || '',
+          Storagebin: row['Storagebin'] || '',
+          Medium: row['Medium'] || '',
+          Print: row['Print'] || ''
+        }));
+
+        // Ensure spinner is shown for at least 3 seconds
+        const minLoadingTime = new Promise(resolve => setTimeout(resolve, 3000));
+        await Promise.all([minLoadingTime, Promise.resolve()]);
+
+        // Hide spinner
+        document.getElementById('spinner').style.display = 'none';
+
+        renderLabels(cleanedData);
+      } catch (err) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('app').innerHTML = '<p style="color:red;">โหลดข้อมูลล้มเหลว</p>';
+        console.error(err);
+      }
+    }
+
+    function renderLabels(data) {
+  const app = document.getElementById('app');
+  app.innerHTML = '<div class="container"></div>';
+  const container = app.querySelector('.container');
+
+  // Filter data to include only rows with non-empty Material and Print = 'true'
+  const validData = data.filter(row => row.Material && row.Material.trim() !== '' && row.Print === 'true');
+
+  // Sort validData by Material first, then by Serial
+  validData.sort((a, b) => {
+    // Compare Material first
+    const materialComparison = a.Material.localeCompare(b.Material);
+    if (materialComparison !== 0) {
+      return materialComparison;
+    }
+    // If Materials are equal, compare Serial
+    return a.Serial.localeCompare(b.Serial);
+  });
+
+  validData.forEach(row => {
+    const sticker = document.createElement('div');
+    sticker.className = 'sticker';
+    const label = createLabel(row);
+    sticker.appendChild(label);
+    container.appendChild(sticker);
+  });
+
+  // If no valid data, display a message
+  if (validData.length === 0) {
+    app.innerHTML = '<p style="text-align:center;">ไม่พบข้อมูลให้ Print อ้ายสัส</p>';
+  }
+}
+    function createLabel(row) {
+      const label = document.createElement('div');
+      label.className = 'label';
+
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'row';
+
+      const qrCanvas = document.createElement('canvas');
+      qrCanvas.className = 'qr';
+      rowDiv.appendChild(qrCanvas);
+
+      const textContainer = document.createElement('div');
+      textContainer.className = 'text-container';
+
+      const materialDiv = document.createElement('div');
+      materialDiv.className = 'material';
+      materialDiv.textContent = row.Material;
+      textContainer.appendChild(materialDiv);
+
+      rowDiv.appendChild(textContainer);
+
+      const desc = document.createElement('div');
+      desc.className = 'description';
+      desc.textContent = row.Description;
+      rowDiv.appendChild(desc);
+
+      const serialContainer = document.createElement('div');
+      serialContainer.className = 'serial-container';
+
+      const serialLabel = document.createElement('div');
+      serialLabel.className = 'serial-label';
+      serialLabel.textContent = 'Serial Number';
+      serialContainer.appendChild(serialLabel);
+
+      const serialText = document.createElement('div');
+      serialText.className = 'serial-text';
+      serialText.textContent = row.Serial;
+      serialContainer.appendChild(serialText);
+
+      rowDiv.appendChild(serialContainer);
+
+      label.appendChild(rowDiv);
+
+      const bottomContainer = document.createElement('div');
+      bottomContainer.className = 'bottom-container';
+
+      const now = new Date();
+      const formattedDate = `${now.getFullYear().toString().slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const loc = document.createElement('div');
+      loc.className = 'location';
+      loc.textContent = `Location: ${row.Storagebin}`;
+      bottomContainer.appendChild(loc);
+
+      const lot = document.createElement('div');
+      lot.className = 'lot-line';
+      lot.innerHTML = `<span>Lot: ${formattedDate}</span>`;
+      bottomContainer.appendChild(lot);
+
+      label.appendChild(bottomContainer);
+
+      const serialQrCanvas = document.createElement('canvas');
+      serialQrCanvas.className = 'center-serial-qr';
+      label.appendChild(serialQrCanvas);
+
+      if (typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(qrCanvas, row.Material || 'N/A', {
+          width: 75,
+          height: 75,
+          margin: 0,
+          errorCorrectionLevel: 'L'
+        }, err => {
+          if (err) console.error('QR Error for Material:', err);
+        });
+
+        QRCode.toCanvas(serialQrCanvas, row.Serial || 'N/A', {
+          width: 75,
+          height: 75,
+          margin: 0,
+          errorCorrectionLevel: 'L'
+        }, err => {
+          if (err) console.error('QR Error for Serial:', err);
+        });
+      }
+
+      return label;
+    }
+
+    loadAndRender();
+  </script>
+</body>
+</html>
