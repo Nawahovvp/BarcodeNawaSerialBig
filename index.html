@@ -74,7 +74,7 @@
     }
     .barcode-in-text {
       width: 100% !important;
-      height: 10mm !important; /* เพิ่มขนาด Barcode จาก 8mm เป็น 10mm เพื่อรองรับ height ใหม่ */
+      height: 8mm !important; /* ลดขนาด Barcode กลับเป็น 8mm เนื่องจากไม่มี text ใต้ barcode แล้ว */
       margin-top: 1mm;
       background: white;
     }
@@ -310,7 +310,7 @@
       const barcodeCanvas = document.createElement('canvas');
       barcodeCanvas.setAttribute('class', 'barcode-in-text');
       barcodeCanvas.width = 300;
-      barcodeCanvas.height = 50; /* เพิ่ม canvas height สำหรับ Barcode จาก 40 เป็น 50 เพื่อรองรับ height ใหม่ */
+      barcodeCanvas.height = 40; /* ลด canvas height กลับเป็น 40 เนื่องจากไม่มี text ใต้ barcode แล้ว */
       textContainer.appendChild(barcodeCanvas);
      
       rowDiv.appendChild(textContainer);
@@ -388,7 +388,7 @@
         });
       }
      
-      // Generate Barcode with delay to ensure library load - ปรับปรุง CODE128 ให้สแกนได้ดีขึ้น
+      // Generate Barcode with delay to ensure library load - ปรับปรุง CODE128 ให้สแกนได้ดีขึ้น และไม่แสดง text ใต้ barcode
       setTimeout(() => {
         if (typeof JsBarcode !== 'undefined') {
           console.log('Generating short CODE128 barcode for Material:', row.Material);
@@ -396,11 +396,11 @@
             format: 'CODE128', // ใช้ CODE128 อย่างชัดเจน
             width: 2, // เพิ่มจาก 1 เป็น 2 เพื่อให้บาร์หนาขึ้น สแกนได้ชัด
             height: 30, /* เพิ่มจาก 25 เป็น 30 เพื่อให้สูงขึ้น */
-            displayValue: true,
+            displayValue: false, // เปลี่ยนเป็น false เพื่อไม่แสดงข้อมูลใต้ Barcode
             margin: 10, // เพิ่มจาก 5 เป็น 10 สำหรับ quiet zone
             background: 'white',
-            lineColor: 'black',
-            fontSize: 10 /* เพิ่มจาก 7 เป็น 10 ให้ text ชัด */
+            lineColor: 'black'
+            // ลบ fontSize ออกเพราะไม่แสดง text แล้ว
           }, function(err) {
             if (err) {
               console.error('Barcode Error:', err);
