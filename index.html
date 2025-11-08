@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Label 80x100 mm</title>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap');
     body {
@@ -44,6 +45,7 @@
       flex-wrap: wrap;
       align-items: flex-start;
       margin-bottom: 2mm;
+      margin-top: 5mm; /* ขยับ QR code และ Material ลง 5mm */
     }
     .bottom-container {
       display: flex;
@@ -52,8 +54,8 @@
       padding-bottom: 0;
     }
     .qr {
-      width: 20mm;
-      height: 20mm;
+      width: 15mm; /* ลดขนาด QR code จาก 20mm เป็น 15mm */
+      height: 15mm;
       margin-right: 2mm;
       margin-left: 3mm;
     }
@@ -69,6 +71,12 @@
       text-align: left;
       margin: 0;
       line-height: 1.1;
+    }
+    .barcode-in-text {
+      width: 100% !important;
+      height: 10mm !important; /* เพิ่มขนาด Barcode จาก 8mm เป็น 10mm เพื่อรองรับ height ใหม่ */
+      margin-top: 1mm;
+      background: white;
     }
     .description {
       font-size: 20px;
@@ -87,8 +95,14 @@
     .serial-container {
       display: flex;
       flex-direction: column;
+      align-items: flex-start;
       margin: 2mm 0 0 3mm;
       width: calc(100% - 4mm);
+    }
+    .serial-info {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
     }
     .serial-label {
       font-size: 20px;
@@ -98,10 +112,31 @@
       line-height: 1.2;
     }
     .serial-text {
-      font-size: 25px;
+      font-size: 24px; /* ลดขนาดลง 1 ค่า จาก 25px เป็น 24px */
       font-weight: bold;
       text-align: left;
-      margin: 2mm 0 0 0;
+      margin: 0 0 0 0;
+      line-height: 1.2;
+    }
+    .firstrear-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin: 1mm 0 0 3mm;
+      width: calc(100% - 4mm);
+    }
+    .firstrear-label {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: left;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .firstrear-text {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: left;
+      margin: 0 0 0 0;
       line-height: 1.2;
     }
     .location {
@@ -127,8 +162,8 @@
       top: 65%;
       left: 50%;
       transform: translate(-50%, -30%);
-      width: 20mm;
-      height: 20mm;
+      width: 15mm; /* ลดขนาด center QR code จาก 20mm เป็น 15mm */
+      height: 15mm;
       margin-top: 2mm;
     }
     .print-button {
@@ -198,17 +233,14 @@
   <div id="app">
     <p style="text-align:center;">กำลังโหลดข้อมูล...</p>
   </div>
-
   <script>
     const sheetID = "1q-yJfvUsdGDYBqY7V_V9AhHp1Z9augtxvLWblzTV9XM";
     const sheetName = "Data_Serial";
     const url = `https://opensheet.elk.sh/${sheetID}/${sheetName}`;
-
     async function loadAndRender() {
       try {
         const response = await fetch(url);
         const data = await response.json();
-
         const cleanedData = data.map(row => ({
           IDserial: row['IDserial'] || '',
           IDBarcode: row['IDBarcode'] || '',
@@ -216,17 +248,15 @@
           Serial: row['Serial'] || '',
           Description: row['Description'] || '',
           Storagebin: row['Storagebin'] || '',
+          FirstRear: row['FirstRear'] || '',
           Medium: row['Medium'] || '',
           Print: row['Print'] || ''
         }));
-
         // Ensure spinner is shown for at least 3 seconds
         const minLoadingTime = new Promise(resolve => setTimeout(resolve, 3000));
         await Promise.all([minLoadingTime, Promise.resolve()]);
-
         // Hide spinner
         document.getElementById('spinner').style.display = 'none';
-
         renderLabels(cleanedData);
       } catch (err) {
         document.getElementById('spinner').style.display = 'none';
@@ -234,127 +264,165 @@
         console.error(err);
       }
     }
-
     function renderLabels(data) {
-  const app = document.getElementById('app');
-  app.innerHTML = '<div class="container"></div>';
-  const container = app.querySelector('.container');
-
-  // Filter data to include only rows with non-empty Material and Print = 'true'
-  const validData = data.filter(row => row.Material && row.Material.trim() !== '' && row.Print === 'true');
-
-  // Sort validData by Material first, then by Serial
-  validData.sort((a, b) => {
-    // Compare Material first
-    const materialComparison = a.Material.localeCompare(b.Material);
-    if (materialComparison !== 0) {
-      return materialComparison;
+      const app = document.getElementById('app');
+      app.innerHTML = '<div class="container"></div>';
+      const container = app.querySelector('.container');
+      // Filter data to include only rows with non-empty Material and Print = true (boolean or string)
+      const validData = data.filter(row => row.Material && row.Material.trim() !== '' && (row.Print === true || row.Print === 'true'));
+      // Sort validData by Material first, then by Serial
+      validData.sort((a, b) => {
+        // Compare Material first
+        const materialComparison = a.Material.localeCompare(b.Material);
+        if (materialComparison !== 0) {
+          return materialComparison;
+        }
+        // If Materials are equal, compare Serial
+        return a.Serial.localeCompare(b.Serial);
+      });
+      validData.forEach(row => {
+        const sticker = document.createElement('div');
+        sticker.className = 'sticker';
+        const label = createLabel(row);
+        sticker.appendChild(label);
+        container.appendChild(sticker);
+      });
+      // If no valid data, display a message
+      if (validData.length === 0) {
+        app.innerHTML = '<p style="text-align:center;">ไม่พบข้อมูลให้ Print อ้ายสัส</p>';
+      }
     }
-    // If Materials are equal, compare Serial
-    return a.Serial.localeCompare(b.Serial);
-  });
-
-  validData.forEach(row => {
-    const sticker = document.createElement('div');
-    sticker.className = 'sticker';
-    const label = createLabel(row);
-    sticker.appendChild(label);
-    container.appendChild(sticker);
-  });
-
-  // If no valid data, display a message
-  if (validData.length === 0) {
-    app.innerHTML = '<p style="text-align:center;">ไม่พบข้อมูลให้ Print อ้ายสัส</p>';
-  }
-}
     function createLabel(row) {
       const label = document.createElement('div');
       label.className = 'label';
-
       const rowDiv = document.createElement('div');
       rowDiv.className = 'row';
-
       const qrCanvas = document.createElement('canvas');
       qrCanvas.className = 'qr';
       rowDiv.appendChild(qrCanvas);
-
       const textContainer = document.createElement('div');
       textContainer.className = 'text-container';
-
       const materialDiv = document.createElement('div');
       materialDiv.className = 'material';
       materialDiv.textContent = row.Material;
       textContainer.appendChild(materialDiv);
-
+     
+      const barcodeCanvas = document.createElement('canvas');
+      barcodeCanvas.setAttribute('class', 'barcode-in-text');
+      barcodeCanvas.width = 300;
+      barcodeCanvas.height = 50; /* เพิ่ม canvas height สำหรับ Barcode จาก 40 เป็น 50 เพื่อรองรับ height ใหม่ */
+      textContainer.appendChild(barcodeCanvas);
+     
       rowDiv.appendChild(textContainer);
-
       const desc = document.createElement('div');
       desc.className = 'description';
       desc.textContent = row.Description;
       rowDiv.appendChild(desc);
-
       const serialContainer = document.createElement('div');
       serialContainer.className = 'serial-container';
-
+      const serialInfo = document.createElement('div');
+      serialInfo.className = 'serial-info';
       const serialLabel = document.createElement('div');
       serialLabel.className = 'serial-label';
-      serialLabel.textContent = 'Serial Number';
-      serialContainer.appendChild(serialLabel);
-
+      serialLabel.textContent = 'S/N :'; /* เปลี่ยนจาก 'Serial Number' เป็น 'S/N :' */
+      serialInfo.appendChild(serialLabel);
       const serialText = document.createElement('div');
       serialText.className = 'serial-text';
       serialText.textContent = row.Serial;
-      serialContainer.appendChild(serialText);
-
+      serialInfo.appendChild(serialText);
+      serialContainer.appendChild(serialInfo);
       rowDiv.appendChild(serialContainer);
-
+     
+      // เพิ่ม FirstRear
+      if (row.FirstRear && row.FirstRear.trim() !== '') {
+        const firstrearContainer = document.createElement('div');
+        firstrearContainer.className = 'firstrear-container';
+        const firstrearInfo = document.createElement('div');
+        const firstrearLabel = document.createElement('div');
+        firstrearLabel.className = 'firstrear-label';
+        firstrearLabel.textContent = 'First/Rear:';
+        firstrearInfo.appendChild(firstrearLabel);
+        const firstrearText = document.createElement('div');
+        firstrearText.className = 'firstrear-text';
+        firstrearText.textContent = row.FirstRear;
+        firstrearInfo.appendChild(firstrearText);
+        firstrearContainer.appendChild(firstrearInfo);
+        rowDiv.appendChild(firstrearContainer);
+      }
+     
       label.appendChild(rowDiv);
-
       const bottomContainer = document.createElement('div');
       bottomContainer.className = 'bottom-container';
-
       const now = new Date();
       const formattedDate = `${now.getFullYear().toString().slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-
       const loc = document.createElement('div');
       loc.className = 'location';
       loc.textContent = `Location: ${row.Storagebin}`;
       bottomContainer.appendChild(loc);
-
       const lot = document.createElement('div');
       lot.className = 'lot-line';
       lot.innerHTML = `<span>Lot: ${formattedDate}</span>`;
       bottomContainer.appendChild(lot);
-
       label.appendChild(bottomContainer);
-
       const serialQrCanvas = document.createElement('canvas');
       serialQrCanvas.className = 'center-serial-qr';
       label.appendChild(serialQrCanvas);
-
+     
+      // Generate QR Codes
       if (typeof QRCode !== 'undefined') {
         QRCode.toCanvas(qrCanvas, row.Material || 'N/A', {
-          width: 75,
-          height: 75,
+          width: 60, /* ลด pixel size จาก 75 เป็น 60 */
+          height: 60,
           margin: 0,
           errorCorrectionLevel: 'L'
         }, err => {
           if (err) console.error('QR Error for Material:', err);
         });
-
         QRCode.toCanvas(serialQrCanvas, row.Serial || 'N/A', {
-          width: 75,
-          height: 75,
+          width: 60, /* ลด pixel size จาก 75 เป็น 60 */
+          height: 60,
           margin: 0,
           errorCorrectionLevel: 'L'
         }, err => {
           if (err) console.error('QR Error for Serial:', err);
         });
       }
-
+     
+      // Generate Barcode with delay to ensure library load - ปรับปรุง CODE128 ให้สแกนได้ดีขึ้น
+      setTimeout(() => {
+        if (typeof JsBarcode !== 'undefined') {
+          console.log('Generating short CODE128 barcode for Material:', row.Material);
+          JsBarcode(barcodeCanvas, row.Material || '30061163', {
+            format: 'CODE128', // ใช้ CODE128 อย่างชัดเจน
+            width: 2, // เพิ่มจาก 1 เป็น 2 เพื่อให้บาร์หนาขึ้น สแกนได้ชัด
+            height: 30, /* เพิ่มจาก 25 เป็น 30 เพื่อให้สูงขึ้น */
+            displayValue: true,
+            margin: 10, // เพิ่มจาก 5 เป็น 10 สำหรับ quiet zone
+            background: 'white',
+            lineColor: 'black',
+            fontSize: 10 /* เพิ่มจาก 7 เป็น 10 ให้ text ชัด */
+          }, function(err) {
+            if (err) {
+              console.error('Barcode Error:', err);
+              const ctx = barcodeCanvas.getContext('2d');
+              ctx.fillStyle = 'black';
+              ctx.font = '12px Arial';
+              ctx.fillText('Barcode Error: ' + (row.Material || 'N/A'), 10, 25);
+            } else {
+              console.log('Short CODE128 barcode generated successfully for:', row.Material);
+            }
+          });
+        } else {
+          console.error('JsBarcode not loaded');
+          const ctx = barcodeCanvas.getContext('2d');
+          ctx.fillStyle = 'black';
+          ctx.font = '12px Arial';
+          ctx.fillText('JsBarcode not loaded', 10, 25);
+        }
+      }, 1000); // เพิ่ม delay เป็น 1 วินาทีเพื่อให้แน่ใจว่า library โหลดเสร็จ
+     
       return label;
     }
-
     loadAndRender();
   </script>
 </body>
